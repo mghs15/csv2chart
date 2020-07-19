@@ -162,7 +162,7 @@ var drawTable = function(csv, startLineNum, endLineNum, startTime, endTime){
     //時刻からヘッダ内の範囲を計算する
     var regex = /\d\d\d\d/; //もう少し、精度よく
     var startColumnNum = 1;
-    var endColumnNum = 24;
+    var endColumnNum = 25;
     if(csv.header.length > 0){
         for(i in csv.header){
             if(!csv.header[i].match(regex)){
@@ -218,6 +218,8 @@ var rgb2string = function(r, g, b){
     return "rgb(" + r + "," + g + "," + b + ")";
 }
 
+var chart;
+
 var drawChart = function(csv, startLineNum, endLineNum, startTime, endTime){
     
     var startLineNum = parseInt(startLineNum); //ヘッダを含めず
@@ -233,7 +235,7 @@ var drawChart = function(csv, startLineNum, endLineNum, startTime, endTime){
     //時刻からヘッダ内の範囲を計算する
     var regex = /\d\d\d\d/; //もう少し、精度よく
     var startColumnNum = 1;
-    var endColumnNum = 24;
+    var endColumnNum = 25;
     if(csv.header.length > 0){
         for(i in csv.header){
             if(!csv.header[i].match(regex)){
@@ -272,12 +274,14 @@ var drawChart = function(csv, startLineNum, endLineNum, startTime, endTime){
         datasets: dataset4chart
     };
 
-    //Canvas初期化が必要かも
     var canvas = document.getElementById('myChart')
     var ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    var chart = new Chart(ctx, {
+    if(chart){
+       chart.destroy();
+    }
+    
+    chart = new Chart(ctx, {
         // The type of chart we want to create
         type: 'line',
 
