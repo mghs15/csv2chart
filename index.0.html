@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset='utf-8' />
+<title>Chart.jsの練習ページ</title>
+<meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+<style>
+body { margin:1em; padding:0; }
+
+#menu {
+    position: absolute;
+    left:  0.5em;
+    top: 0.5em; 
+    padding: 0.1em 0.2em;
+    margin: 0 0;
+    background: #eeeeee;
+    box-shadow: 0px 0px 0px 3px #eeeeee;
+    border: dashed 2px #dddddd;
+    font-family: 'Open Sans', sans-serif;
+    width: 90%;
+    max-width: 100px;
+    border-radius: 3px;
+}
+button.local {
+    display: block;
+    text-align:center;
+    background: #dddddd;
+    padding 0 0.25em 0 0.25em;
+    border: solid 2px #ddd;
+    border-radius: 3px;
+    margin: 2px 0px 2px 0px;
+    line-height: 1.5em;
+    font-size: 1em;
+    width: 100%;
+}
+#download {
+    display: block;
+    text-align:center;
+    background: #dddddd;
+    padding 0 0.5em 0 0.5em;
+    border: solid 2px #ddd;
+    border-radius: 3px;
+    margin: 0px 0px 5px 0px;
+    line-height: 1.5em;
+    font-size: 1em;
+    width: 100%;
+}
+
+</style>
+</head>
+
+<body>
+<h1>Chart.jsの練習ページ</h1>
+<form name="question">
+    <div class="question"><strong>サンプルの種類を選択</strong></div>
+    <label><input type='radio' name='q1' value="sample2" checked>サンプル１</label>
+    <label><input type='radio' name='q1' value="sample3">サンプル２</label>
+    
+    <div class="question"><strong>行数の範囲</strong>(ヘッダを含めない)</div>
+    <label>開始行:<input type='number' name='q2' value=1></label>
+    <label>最終行:<input type='number' name='q3' value=30></label>
+    
+    <div class="question"><strong>列数の範囲</strong>(行名を含めない)</div>
+    <label>開始列:<input type='number' name='q4' value=1></label>
+    <label>最終列:<input type='number' name='q5' value=100></label>
+      
+</form>
+<button type="button" class="local"  onclick="drawChartFromBtn()" >グラフと表を表示</button>
+
+<h2>グラフ</h2>
+<canvas id="myChart"></canvas>
+
+<h2>表</h2>
+<div id="tablespace"></div>
+
+
+<script>
+
+/*************************************************/
+/*JSON読み込み                                   */
+/*************************************************/
+
+var loadJSON = function(path){
+  
+    var data = {};
+    
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', path, false);
+    xhr.send(null);
+    
+    if(xhr.status == 200 || xhr.status == 304){
+      data = JSON.parse(xhr.responseText);
+    }
+    
+    return data;
+}
+
+/*************************************************/
+/*CSV読み込み                                    */
+/*************************************************/
+
+//配列中のNAを0に置き換え
+var replaceNA = function(array){
+    for(i in array){
+        if(array[i] == "NA" || array[i] == "<NA>"){
+            array[i] = 0;
+        }
+    }
+    return array;
+}
+
+//CSV等の読み込み  
+var loadTable = function(path, separator=",", header=false){
+  
+    var data = {
+        "header": [],
+        "data": []  
+    };
+    
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', path, false);
+    xhr.send(null);
+    
+    if(xhr.status == 200 || xhr.status == 304){
+        var content = xhr.responseText;
+        var lines = content.split("\n");
+        for(i in lines){
+            var headerArr = [];
+            var line = lines[i];
+            line = line.replace("\r", "");
+            
+            if(header && i < 1){ //ヘッダ
+                headerArr = line.split(separator);
+                data.header = headerArr;
+            }else if(line.length > 0){ //その他
+                var lineDataArr = line.split(separator);
+                lineDataArr = replaceNA(lineDataArr); //NAを0に置き換え
+                data.data.push(lineDataArr);
+            }
+        }
+    }
+    
+    return data;
+}
+
+/*************************************************/
+/*表の表示                                       */
+/*************************************************/
+
+var drawTable = function(csv, startLineNum, endLineNum, startColumnNum, endColumnNum){
+    
+    var startLineNum = parseInt(startLineNum); //ヘッダを含めず
+    var endLineNum = parseInt(endLineNum);
+    var startColumnNum = parseInt(startColumnNum);
+    var endColumnNum = parseInt(endColumnNum);
+    
+    if(csv.data.length-1 < endLineNum){
+        endLineNum = csv.data.length-1;
+    }
+    if(csv.data.length-1 < startLineNum){
+        startLineNum = csv.data.length-1;
+    }
+    
+    //表の作成
+    var tableData = "<table border='1'>\n";
+    
+    //ヘッダ
+    if(csv.header.length > 0){
+        csv.header = csv.header.slice(startColumnNum, endColumnNum+1); //指定範囲の列を取り出す。endColumnNumを含ませるため、+1。
+        tableData = tableData + "<tr>" + "<th></th><th></th>";
+        for(j in csv.header){
+            tableData = tableData + "<th>" + csv.header[j] + "</th>";
+        }
+        tableData = tableData + "</tr>";
+    }
+    //値
+    for(var i=startLineNum; i <= endLineNum; i++){
+        console.log(i, startLineNum);
+        var rank = i + 1;
+        var colname = csv.data[i][0];
+        csv.data[i] = csv.data[i].slice(startColumnNum, endColumnNum+1); //指定範囲の列を取り出す。endColumnNumを含ませるため、+1。
+        
+        tableData = tableData + "<tr>" + "<th>" + rank + "位</th>" + "<th>" + colname + "</th>";
+        for(j in csv.data[i]){
+            tableData = tableData + "<td>" + csv.data[i][j] + "</td>";
+        }
+        tableData = tableData + "</tr>\n";
+
+    }
+    tableData = tableData + "</table>";
+    document.getElementById("tablespace").innerHTML = tableData;
+}
+
+/*************************************************/
+/*グラフの表示                                   */
+/*************************************************/
+
+var rgb2string = function(r, g, b){
+    return "rgb(" + r + "," + g + "," + b + ")";
+}
+
+var drawChart = function(csv, startLineNum = 0, endLineNum = 30, startColumnNum = 1, endColumnNum = 100){
+    
+    var startLineNum = parseInt(startLineNum); //ヘッダを含めず
+    var endLineNum = parseInt(endLineNum);
+    var startColumnNum = parseInt(startColumnNum);
+    var endColumnNum = parseInt(endColumnNum);
+    
+    if(csv.data.length-1 < endLineNum){
+        endLineNum = csv.data.length-1;
+    }
+    if(csv.data.length-1 < startLineNum){
+        startLineNum = csv.data.length-1;
+    }
+    
+    //Chart.js用に加工
+    var dataset4chart = [];
+    for(var i=startLineNum; i <= endLineNum; i++){
+        console.log(i);
+        var line = csv.data[i];
+        var lineColor = rgb2string(Math.floor(Math.random()*255), Math.floor(Math.random()*255), Math.floor(Math.random()*255));
+        var lineData = {
+            label: line[0],
+            backgroundColor: lineColor,
+            borderColor: lineColor,
+            fill: false,
+            lineTension: 0,
+            data: line.slice(startColumnNum, endColumnNum+1) //指定範囲の列を取り出す。endColumnNumを含ませるため、+1。
+        }
+        dataset4chart.push(lineData);
+        console.log(i);
+    }
+
+    var data4chart = {
+        labels: csv.header.slice(startColumnNum, endColumnNum+1), //指定範囲の列を取り出す。endColumnNumを含ませるため、+1。
+        datasets: dataset4chart
+    };
+
+    //Canvas初期化が必要かも
+    var canvas = document.getElementById('myChart')
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    var chart = new Chart(ctx, {
+        // The type of chart we want to create
+        type: 'line',
+
+        // The data for our dataset
+        data: data4chart,
+
+        // Configuration options go here
+        options: {}
+    });
+
+}
+
+
+/*************************************************/
+/*ボタンによる操作                               */
+/*************************************************/
+var drawChartFromBtn = function(){
+    
+    //取得
+    var q1 = document.question.q1.value;
+    var startLineNumG = document.question.q2.value; //ヘッダを含めず
+    var endLineNumG = document.question.q3.value;
+    
+    var startColumnNumG = document.question.q4.value;
+    var endColumnNumG = document.question.q5.value;
+    
+    //数値に変換＋調整
+    var startLineNumG = parseInt(startLineNumG)-1; //ヘッダを含めず
+    var endLineNumG = parseInt(endLineNumG)-1;
+    var startColumnNumG = parseInt(startColumnNumG);
+    var endColumnNumG = parseInt(endColumnNumG);
+    
+    if(startLineNumG > endLineNumG){
+      var buff = endLineNumG;
+      endLineNumG = startLineNumG;
+      startLineNumG = buff;
+    }
+    if(startColumnNumG > endColumnNumG){
+      var buff = endColumnNumG;
+      endColumnNumG = startColumnNumG;
+      startColumnNumG = buff;
+    }
+    
+    var filepath = "./" + q1 + ".csv";
+    
+    console.log(filepath, startLineNumG, endLineNumG, startColumnNumG, endColumnNumG);
+    
+    
+    //Chart用に加工した、「時刻（YYYY-MM-DD hh:mm:ss）×ID」のテーブル型のCSV
+    var csvdata = loadTable(filepath, ",", true); //ヘッダを含めて
+    
+    drawChart(csvdata, startLineNumG, endLineNumG, startColumnNumG, endColumnNumG);
+    drawTable(csvdata, startLineNumG, endLineNumG, startColumnNumG, endColumnNumG);
+    
+}
+
+</script>
+ 
+</body>
+</html>
